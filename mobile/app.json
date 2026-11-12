@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "TailorBook",
+    "slug": "tailorbook",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tailorbook.app"
+    },
+    "android": {
+      "package": "com.tailorbook.app",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#1A3C5E",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "./plugins/withCleartextTraffic.js",
+      "expo-sqlite",
+      "expo-secure-store",
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "TailorBook requires access to your photos to attach bill photographs.",
+          "cameraPermission": "TailorBook requires access to your camera to photograph physical customer receipts."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "31ccce38-8b1f-4013-ba18-60ad9582bb58"
+      }
+    },
+    "owner": "abdurrahemanzoraiz"
+  }
+}
