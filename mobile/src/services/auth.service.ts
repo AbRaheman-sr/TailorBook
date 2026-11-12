@@ -174,7 +174,10 @@ export async function testBackendConnection(
   try {
     const response = await fetch(healthUrl, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
+      },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -222,6 +225,7 @@ export async function activateShop(
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
       },
       body: JSON.stringify({
         username: username.trim(),
