@@ -20,6 +20,7 @@ export async function getDeviceId(): Promise<string> {
 
 /**
  * Retrieves the currently active shop license from secure storage.
+ * Returns null if not activated or if offline validity has expired.
  */
 export async function getActiveLicense(): Promise<ShopLicense | null> {
   try {
@@ -27,11 +28,16 @@ export async function getActiveLicense(): Promise<ShopLicense | null> {
     if (!raw) return null;
     const license = JSON.parse(raw) as ShopLicense;
 
+    // Strict validation: must have tenant_id and signature
+    if (!license.tenant_id || !license.device_id || !license.signature) {
+      return null;
+    }
+
     // Check offline validity
     if (license.offline_valid_until) {
       const validUntil = new Date(license.offline_valid_until).getTime();
       if (Date.now() > validUntil) {
-        // License expired
+        // License expired after max offline period
         return null;
       }
     }
@@ -42,21 +48,21 @@ export async function getActiveLicense(): Promise<ShopLicense | null> {
 }
 
 /**
- * Saves a verified shop license to secure storage.
+ * Saves a verified, server-signed shop license to secure storage.
  */
 export async function saveLicense(license: ShopLicense): Promise<void> {
   await SecureStore.setItemAsync(LICENSE_KEY, JSON.stringify(license));
 }
 
 /**
- * Removes shop activation from device.
+ * Removes shop activation from device (deactivates / logs out).
  */
 export async function clearLicense(): Promise<void> {
   await SecureStore.deleteItemAsync(LICENSE_KEY);
 }
 
 /**
- * Checks whether an IP / host is a private LAN or loopback address.
+ * Checks whether a URL points to a private LAN or loopback address.
  */
 export function isLocalAddress(url: string): boolean {
   try {
@@ -77,8 +83,8 @@ export function isLocalAddress(url: string): boolean {
 /**
  * Normalizes backend server URL entered by user:
  * - Trims whitespace
- * - Ensures scheme (defaults to http:// if omitted)
- * - Auto-corrects https:// to http:// for local LAN IPs (prevents SSLHandshakeException)
+ * - Ensures scheme (defaults to https:// for public domains, http:// for local IPs)
+ * - Auto-corrects https:// to http:// ONLY for local LAN IPs (to prevent SSLHandshakeException)
  * - Ensures /api suffix is present
  * - Strips trailing slashes
  */
@@ -88,9 +94,11 @@ export function normalizeServerUrl(rawUrl: string): string {
     url = DEFAULT_SERVER_URL;
   }
 
-  // If protocol missing (e.g. 192.168.1.24:3000), prepend http://
+  // If protocol missing, decide scheme:
   if (!/^https?:\/\//i.test(url)) {
-    url = `http://${url}`;
+    // If it's a domain name (not an IP address), prefer https://
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}/.test(url) || url.startsWith('localhost');
+    url = isIp ? `http://${url}` : `https://${url}`;
   }
 
   // Remove trailing slashes
@@ -120,15 +128,14 @@ function parseNetworkError(err: any, targetUrl: string): string {
   if (/CLEARTEXT communication.*not permitted/i.test(msg) || /UnknownServiceException/i.test(msg)) {
     return (
       `Android Security Block:\n` +
-      `Android blocked an unencrypted HTTP connection. This occurs in older APK builds without cleartext permission.\n\n` +
-      `Fix: Install the latest updated APK build, or verify in Expo Go.`
+      `Android blocked an unencrypted HTTP connection. For public servers or mobile data, use a secure HTTPS URL.`
     );
   }
 
   if (/SSLHandshakeException|Handshake failed|certificate/i.test(msg)) {
     return (
-      `SSL Handshake Failed:\n` +
-      `The server at ${targetUrl} does not use SSL/HTTPS. Please use "http://" instead of "https://".`
+      `SSL Connection Error:\n` +
+      `Failed to establish a secure SSL/TLS connection with ${targetUrl}. If connecting to a local PC server, use "http://".`
     );
   }
 
@@ -137,22 +144,19 @@ function parseNetworkError(err: any, targetUrl: string): string {
   ) {
     if (isLocal) {
       return (
-        `Cannot reach backend server (${targetUrl}):\n\n` +
-        `Please check:\n` +
-        `1. Wi-Fi: Ensure your phone is connected to the SAME Wi-Fi network as this PC (turn Wi-Fi ON, turn off Mobile Data/4G).\n` +
-        `2. Server: Ensure the backend is running on your PC (port 3000).\n` +
-        `3. URL: Use http:// (not https://) for local IP.\n` +
-        `4. Firewall: Allow port 3000 through Windows Firewall.`
+        `Cannot connect to local server (${targetUrl}):\n\n` +
+        `• When using mobile data (4G/5G), local IP addresses (192.168.x.x) cannot be reached.\n` +
+        `• To use mobile data, enter the public HTTPS server URL.\n` +
+        `• If testing locally on PC, both phone and PC must be on the same Wi-Fi router.`
       );
     }
-    return `Cannot connect to server at ${targetUrl}. Please check your internet connection.`;
+    return `Cannot reach server at ${targetUrl}. Please check your mobile data or internet connection.`;
   }
 
   if (/aborted|timeout/i.test(msg)) {
     return (
-      `Connection Timed Out (12s):\n` +
-      `The server at ${targetUrl} did not respond in time.\n\n` +
-      `Please ensure your phone is connected to the same Wi-Fi router as your PC and the backend server is running.`
+      `Connection Timed Out:\n` +
+      `The server at ${targetUrl} did not respond within 15 seconds. Please check that the server is online and your mobile data/internet is active.`
     );
   }
 
@@ -169,7 +173,7 @@ export async function testBackendConnection(
   const healthUrl = `${cleanUrl}/health`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
 
   try {
     const response = await fetch(healthUrl, {
@@ -187,7 +191,7 @@ export async function testBackendConnection(
       const dbStatus = data.database?.status === 'connected' ? 'Database Connected' : 'Database Pending';
       return {
         success: true,
-        message: `Connected successfully!\nBackend: Online (${cleanUrl})\n${dbStatus}`,
+        message: `Connected successfully!\nBackend: Online\n${dbStatus}`,
       };
     }
 
@@ -206,6 +210,7 @@ export async function testBackendConnection(
 
 /**
  * Activates shop against the TailorBook NestJS backend.
+ * Upon successful activation, stores the cryptographic license locally for offline use.
  */
 export async function activateShop(
   serverUrl: string,
@@ -217,7 +222,7 @@ export async function activateShop(
   const cleanUrl = normalizeServerUrl(serverUrl);
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
     const response = await fetch(`${cleanUrl}/devices/activate`, {
@@ -242,10 +247,9 @@ export async function activateShop(
     try {
       data = JSON.parse(text);
     } catch {
-      // Handle HTML response (e.g. 502/503 from tunnel or reverse proxy)
       return {
         success: false,
-        message: `Server returned unexpected response (${response.status}). Expected JSON but received HTML or text.`,
+        message: `Server returned unexpected response (${response.status}). Expected JSON.`,
       };
     }
 
@@ -273,7 +277,7 @@ export async function activateShop(
     };
 
     await saveLicense(license);
-    return { success: true, message: 'Shop activated successfully!', license };
+    return { success: true, message: 'Shop activated successfully! You can now use the app online and offline.', license };
   } catch (err: any) {
     clearTimeout(timeoutId);
     return {
@@ -281,24 +285,4 @@ export async function activateShop(
       message: parseNetworkError(err, cleanUrl),
     };
   }
-}
-
-/**
- * Quick activation for local offline testing if backend is temporarily unreachable.
- */
-export async function activateLocalDemo(shopName: string = 'My Tailoring Shop'): Promise<ShopLicense> {
-  const deviceId = await getDeviceId();
-  const license: ShopLicense = {
-    tenant_id: `tenant_${Crypto.randomUUID().substring(0, 8)}`,
-    tenant_name: shopName.trim() || 'My Tailoring Shop',
-    device_id: deviceId,
-    device_name: 'Local Device',
-    license_version: 1,
-    issued_at: new Date().toISOString(),
-    expires_at: new Date(Date.now() + 365 * 86400000).toISOString(),
-    offline_valid_until: new Date(Date.now() + 365 * 86400000).toISOString(),
-    signature: 'local_pilot_offline_license',
-  };
-  await saveLicense(license);
-  return license;
 }

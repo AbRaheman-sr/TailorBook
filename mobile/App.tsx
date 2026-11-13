@@ -5,7 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getDatabase } from './src/database/database';
 import { getTotalBillsCount } from './src/database/bill.service';
-import { getActiveLicense, activateLocalDemo } from './src/services/auth.service';
+import { getActiveLicense, clearLicense } from './src/services/auth.service';
 import { Bill, ShopLicense } from './src/types';
 
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -18,7 +18,7 @@ import { SettingsScreen } from './src/screens/SettingsScreen';
 type Screen = 'home' | 'create-bill' | 'search' | 'bill-detail' | 'activate' | 'settings';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('home');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('activate');
   const [license, setLicense] = useState<ShopLicense | null>(null);
   const [totalBills, setTotalBills] = useState<number>(0);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
@@ -28,21 +28,22 @@ export default function App() {
   const initApp = useCallback(async () => {
     try {
       await getDatabase();
-      let activeLic = await getActiveLicense();
-      
-      // If first launch without activation, initialize local pilot mode for seamless offline testing
-      if (!activeLic) {
-        activeLic = await activateLocalDemo('My Tailoring Shop');
-      }
-
-      setLicense(activeLic);
+      const activeLic = await getActiveLicense();
 
       if (activeLic) {
+        setLicense(activeLic);
+        setCurrentScreen('home');
         const count = await getTotalBillsCount(activeLic.tenant_id);
         setTotalBills(count);
+      } else {
+        // Strict Gatekeeping: Unregistered devices MUST activate before accessing any app feature
+        setLicense(null);
+        setCurrentScreen('activate');
       }
     } catch (err) {
       console.error('Initialization error:', err);
+      setLicense(null);
+      setCurrentScreen('activate');
     } finally {
       setIsInitializing(false);
     }
@@ -59,15 +60,41 @@ export default function App() {
     }
   };
 
+  const handleDeactivate = async () => {
+    await clearLicense();
+    setLicense(null);
+    setCurrentScreen('activate');
+  };
+
   if (isInitializing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1A3C5E" />
+        <ActivityIndicator size="large" color="#FFFFFF" />
       </View>
     );
   }
 
-  const tenantId = license?.tenant_id || 'default_tenant';
+  // Strict Gatekeeping: If no valid signed license exists, only show the Activation/Login screen
+  if (!license || currentScreen === 'activate') {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <View style={styles.container}>
+          <ActivationScreen
+            currentLicense={license}
+            onBack={license ? () => setCurrentScreen('home') : undefined}
+            onActivated={(newLic) => {
+              setLicense(newLic);
+              setCurrentScreen('home');
+              refreshTotalBills();
+            }}
+          />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
+  const tenantId = license.tenant_id;
 
   return (
     <SafeAreaProvider>
@@ -105,17 +132,6 @@ export default function App() {
             bill={selectedBill}
             onBack={() => setCurrentScreen('search')}
             onBillDeleted={refreshTotalBills}
-          />
-        )}
-
-        {currentScreen === 'activate' && (
-          <ActivationScreen
-            currentLicense={license}
-            onBack={() => setCurrentScreen('home')}
-            onActivated={(newLic) => {
-              setLicense(newLic);
-              refreshTotalBills();
-            }}
           />
         )}
 

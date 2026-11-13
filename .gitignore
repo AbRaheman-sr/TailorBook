@@ -31,4 +31,6 @@ yarn-error.log*
 Thumbs.db
 .idea/
 .vscode/
+cloudflared.exe
+
 

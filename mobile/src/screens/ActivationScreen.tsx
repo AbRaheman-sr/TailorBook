@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import {
   activateShop,
-  activateLocalDemo,
   testBackendConnection,
   normalizeServerUrl,
   DEFAULT_SERVER_URL,
@@ -23,7 +22,7 @@ import { ShopLicense } from '../types';
 
 interface ActivationScreenProps {
   currentLicense: ShopLicense | null;
-  onBack: () => void;
+  onBack?: () => void;
   onActivated: (license: ShopLicense) => void;
 }
 
@@ -32,14 +31,14 @@ export function ActivationScreen({
   onBack,
   onActivated,
 }: ActivationScreenProps) {
-  const [username, setUsername] = useState('startailor');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL);
   const [isLoading, setIsLoading] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Test backend connectivity before activation
+  // Test backend connectivity before submitting credentials
   const handleTestConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
@@ -61,7 +60,10 @@ export function ActivationScreen({
   };
 
   const handleActivate = async () => {
-    if (!username.trim() || !password.trim()) {
+    const cleanUser = username.trim();
+    const cleanPass = password.trim();
+
+    if (!cleanUser || !cleanPass) {
       Alert.alert('Required Fields', 'Please enter your shop username and password.');
       return;
     }
@@ -72,14 +74,13 @@ export function ActivationScreen({
       if (normalized !== serverUrl) {
         setServerUrl(normalized);
       }
-      const result = await activateShop(normalized, username, password);
+      const result = await activateShop(normalized, cleanUser, cleanPass);
       if (result.success && result.license) {
-        Alert.alert('✓ Activated Successfully', result.message, [
+        Alert.alert('✓ Authorized', result.message, [
           {
-            text: 'OK',
+            text: 'Open Shop',
             onPress: () => {
               onActivated(result.license!);
-              onBack();
             },
           },
         ]);
@@ -93,46 +94,6 @@ export function ActivationScreen({
     }
   };
 
-  const handlePilotMode = () => {
-    Alert.alert(
-      'Activate Offline Pilot Mode',
-      'This activates TailorBook immediately on your phone without connecting to any backend server. All bills, search, and backup features will work locally 100% offline.\n\nChoose an option:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Activate "Star Tailor"',
-          onPress: async () => {
-            const license = await activateLocalDemo('Star Tailor');
-            Alert.alert('Activated', `Shop "${license.tenant_name}" is activated in offline mode!`, [
-              {
-                text: 'OK',
-                onPress: () => {
-                  onActivated(license);
-                  onBack();
-                },
-              },
-            ]);
-          },
-        },
-        {
-          text: 'Activate "My Shop"',
-          onPress: async () => {
-            const license = await activateLocalDemo('My Tailoring Shop');
-            Alert.alert('Activated', `Shop "${license.tenant_name}" is activated in offline mode!`, [
-              {
-                text: 'OK',
-                onPress: () => {
-                  onActivated(license);
-                  onBack();
-                },
-              },
-            ]);
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -141,144 +102,152 @@ export function ActivationScreen({
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Shop Activation</Text>
+          {onBack ? (
+            <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+              <Text style={styles.backBtnText}>← Back</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 50 }} />
+          )}
+          <Text style={styles.headerTitle}>TailorBook</Text>
           <View style={{ width: 50 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          {/* Logo / Branding Header */}
+          <View style={styles.brandHeader}>
+            <View style={styles.logoBadge}>
+              <Text style={styles.logoIcon}>✂</Text>
+            </View>
+            <Text style={styles.brandTitle}>Shop Authorization</Text>
+            <Text style={styles.brandSubtitle}>
+              Enter credentials assigned by your administrator to activate this device. Once authorized, TailorBook functions seamlessly both online and offline.
+            </Text>
+          </View>
+
           {currentLicense && (
             <View style={styles.activeBanner}>
-              <Text style={styles.activeBannerTitle}>✓ Currently Activated</Text>
+              <Text style={styles.activeBannerTitle}>✓ Currently Active</Text>
               <Text style={styles.activeBannerText}>Shop: {currentLicense.tenant_name}</Text>
-              <Text style={styles.activeBannerSub}>Device ID: {currentLicense.device_id}</Text>
+              <Text style={styles.activeBannerSub}>Device: {currentLicense.device_id}</Text>
             </View>
           )}
 
-          <Text style={styles.sectionTitle}>Backend Activation</Text>
-          <Text style={styles.sectionSubtitle}>
-            Enter the shop credentials created in the TailorBook admin dashboard.
-          </Text>
-
-          {/* Username */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Shop Username *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. startailor"
-              placeholderTextColor="#9AA6B2"
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* Password */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter shop password"
-              placeholderTextColor="#9AA6B2"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
-
-          {/* Server URL */}
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>Backend Server URL</Text>
-              <TouchableOpacity
-                onPress={() => setServerUrl(DEFAULT_SERVER_URL)}
-                style={styles.resetBtn}
-              >
-                <Text style={styles.resetBtnText}>Reset Default</Text>
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="http://192.168.1.24:3000/api"
-              placeholderTextColor="#9AA6B2"
-              value={serverUrl}
-              onChangeText={setServerUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            {/* Hint Box for Connectivity */}
-            <View style={styles.hintBox}>
-              <Text style={styles.hintText}>
-                ⚠️ <Text style={{ fontWeight: '700' }}>Local Connection Tip:</Text> Your phone MUST be on the same Wi-Fi router (turn Wi-Fi ON, turn off Mobile Data/4G) and URL must start with <Text style={{ fontWeight: '700' }}>http://</Text> (not https://).
-              </Text>
+          {/* Login Card */}
+          <View style={styles.formCard}>
+            {/* Username */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Shop Username *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. startailor"
+                placeholderTextColor="#9AA6B2"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
             </View>
 
-            {/* Test Connection Button */}
-            <TouchableOpacity
-              style={[styles.testBtn, isTesting && styles.btnDisabled]}
-              onPress={handleTestConnection}
-              disabled={isTesting}
-              activeOpacity={0.8}
-            >
-              {isTesting ? (
-                <ActivityIndicator size="small" color="#1A3C5E" />
-              ) : (
-                <Text style={styles.testBtnText}>⚡ Test Connection</Text>
-              )}
-            </TouchableOpacity>
+            {/* Password */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter password"
+                placeholderTextColor="#9AA6B2"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
 
-            {testResult && (
-              <View
-                style={[
-                  styles.testStatusBox,
-                  testResult.success ? styles.testSuccessBox : styles.testErrorBox,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.testStatusText,
-                    testResult.success ? styles.testSuccessText : styles.testErrorText,
-                  ]}
+            {/* Server URL */}
+            <View style={styles.inputGroup}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Backend Server URL</Text>
+                <TouchableOpacity
+                  onPress={() => setServerUrl(DEFAULT_SERVER_URL)}
+                  style={styles.resetBtn}
                 >
-                  {testResult.success ? '● Server is online and responding!' : '● Server is unreachable. Tap Test Connection for details.'}
+                  <Text style={styles.resetBtnText}>Reset Default</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="https://your-domain.com/api"
+                placeholderTextColor="#9AA6B2"
+                value={serverUrl}
+                onChangeText={setServerUrl}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              {/* Network Tip */}
+              <View style={styles.networkNote}>
+                <Text style={styles.networkNoteText}>
+                  🌐 <Text style={{ fontWeight: '700' }}>Mobile Data vs Wi-Fi:</Text> For Mobile Data (4G/5G), use your public HTTPS server URL. For local Wi-Fi testing, use http://192.168.1.24:3000/api.
                 </Text>
               </View>
-            )}
+
+              {/* Test Connection Button */}
+              <TouchableOpacity
+                style={[styles.testBtn, isTesting && styles.btnDisabled]}
+                onPress={handleTestConnection}
+                disabled={isTesting}
+                activeOpacity={0.8}
+              >
+                {isTesting ? (
+                  <ActivityIndicator size="small" color="#1A3C5E" />
+                ) : (
+                  <Text style={styles.testBtnText}>⚡ Test Connection</Text>
+                )}
+              </TouchableOpacity>
+
+              {testResult && (
+                <View
+                  style={[
+                    styles.testStatusBox,
+                    testResult.success ? styles.testSuccessBox : styles.testErrorBox,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.testStatusText,
+                      testResult.success ? styles.testSuccessText : styles.testErrorText,
+                    ]}
+                  >
+                    {testResult.success ? '● Server is online and reachable!' : '● Server unreachable. Tap Test Connection for details.'}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[styles.activateBtn, (isLoading || isTesting) && styles.btnDisabled]}
+              onPress={handleActivate}
+              disabled={isLoading || isTesting}
+              activeOpacity={0.85}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.activateBtnText}>Authorize & Unlock App</Text>
+              )}
+            </TouchableOpacity>
           </View>
 
-          {/* Activate Button */}
-          <TouchableOpacity
-            style={[styles.activateBtn, (isLoading || isTesting) && styles.btnDisabled]}
-            onPress={handleActivate}
-            disabled={isLoading || isTesting}
-            activeOpacity={0.85}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.activateBtnText}>Activate Shop</Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.line} />
-            <Text style={styles.orText}>OR TEST OFFLINE IMMEDIATELY</Text>
-            <View style={styles.line} />
+          {/* Security Notice */}
+          <View style={styles.securityBox}>
+            <Text style={styles.securityTitle}>🔒 Security & Offline Protection</Text>
+            <Text style={styles.securityText}>
+              • Only authorized shops registered in the admin portal can access TailorBook.
+            </Text>
+            <Text style={styles.securityText}>
+              • After initial online authorization, all bills, photos, and searches remain 100% on your device and work completely offline without needing internet.
+            </Text>
           </View>
-
-          {/* Offline Pilot Mode */}
-          <TouchableOpacity
-            style={styles.pilotBtn}
-            onPress={handlePilotMode}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.pilotBtnText}>Activate Offline Pilot Mode (No Server)</Text>
-            <Text style={styles.pilotBtnSub}>Instant 100% offline activation for local app testing</Text>
-          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -317,47 +286,82 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
+  },
+  brandHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logoBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: BRAND_DARK,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  logoIcon: {
+    fontSize: 28,
+    color: ACCENT,
+  },
+  brandTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1A3C5E',
+    marginBottom: 6,
+  },
+  brandSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 12,
   },
   activeBanner: {
     backgroundColor: '#E8F5E9',
     borderWidth: 1.5,
     borderColor: '#C8E6C9',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    padding: 14,
+    marginBottom: 16,
   },
   activeBannerTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#2E7D32',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   activeBannerText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#1B5E20',
   },
   activeBannerSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#4CAF50',
     marginTop: 2,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1A3C5E',
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
     marginBottom: 20,
-    lineHeight: 18,
   },
   inputGroup: {
     marginBottom: 16,
@@ -369,40 +373,41 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#1A3C5E',
+    marginBottom: 6,
   },
   resetBtn: {
     paddingVertical: 2,
     paddingHorizontal: 6,
   },
   resetBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     color: BRAND_MID,
     fontWeight: '600',
   },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
-    borderColor: '#D0DBE5',
+    borderColor: '#E2E8F0',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#212529',
+    color: '#1E293B',
   },
-  hintBox: {
-    backgroundColor: '#FFFBEB',
+  networkNote: {
+    backgroundColor: '#F0F9FF',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#BAE6FD',
     borderRadius: 8,
     padding: 10,
     marginTop: 8,
   },
-  hintText: {
-    fontSize: 12,
-    color: '#92400E',
+  networkNoteText: {
+    fontSize: 11,
+    color: '#0369A1',
     lineHeight: 16,
   },
   testBtn: {
@@ -441,7 +446,7 @@ const styles = StyleSheet.create({
     color: '#C62828',
   },
   activateBtn: {
-    backgroundColor: BRAND_MID,
+    backgroundColor: BRAND_DARK,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -455,39 +460,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#CBD5E1',
-  },
-  orText: {
-    paddingHorizontal: 12,
-    color: '#94A3B8',
-    fontWeight: '700',
-    fontSize: 11,
-  },
-  pilotBtn: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: ACCENT,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+  securityBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     borderRadius: 12,
-    alignItems: 'center',
+    padding: 16,
   },
-  pilotBtnText: {
-    color: '#D97706',
-    fontSize: 15,
+  securityTitle: {
+    fontSize: 13,
     fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
   },
-  pilotBtnSub: {
-    color: '#92400E',
-    fontSize: 11,
-    marginTop: 2,
+  securityText: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 18,
+    marginBottom: 4,
   },
 });
