@@ -4,7 +4,7 @@ import { ShopLicense } from '../types';
 
 const LICENSE_KEY = 'tailorbook_shop_license';
 const DEVICE_ID_KEY = 'tailorbook_device_id';
-export const DEFAULT_SERVER_URL = 'https://bracket-kilometers-march-suse.trycloudflare.com/api';
+export const DEFAULT_SERVER_URL = 'https://tailorbook-backend-4g7r.onrender.com/api';
 
 /**
  * Returns or creates a persistent cryptographic device ID for this phone.
