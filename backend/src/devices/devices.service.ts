@@ -80,13 +80,26 @@ export class DevicesService {
     if (existingDevice.rowCount && existingDevice.rowCount > 0) {
       const dev = existingDevice.rows[0];
       if (dev.status === 'revoked') {
-        throw new ForbiddenException(
-          'This device has been revoked by administration. Contact support to re-authorize.'
+        // Allow re-activation if within tenant max_devices
+        const activeDevices = await this.db.query(
+          "SELECT COUNT(*) as count FROM devices WHERE tenant_id = $1 AND status = 'active'",
+          [tenantId]
         );
+        const currentActive = parseInt(activeDevices.rows[0].count, 10);
+        if (currentActive >= tenant.max_devices) {
+          throw new ForbiddenException(
+            `Device limit reached (${currentActive}/${tenant.max_devices} active devices). Deactivate an existing phone or increase limit in admin portal.`
+          );
+        }
+        await this.db.query(
+          "UPDATE devices SET status = 'active', revoked_at = null, last_seen_at = now() WHERE id = $1",
+          [dev.id]
+        );
+      } else {
+        // Update last seen
+        await this.db.query('UPDATE devices SET last_seen_at = now() WHERE id = $1', [dev.id]);
       }
       deviceRecordId = dev.id;
-      // Update last seen
-      await this.db.query('UPDATE devices SET last_seen_at = now() WHERE id = $1', [dev.id]);
     } else {
       // Check device count limit
       const activeDevices = await this.db.query(
@@ -162,5 +175,13 @@ export class DevicesService {
       return { status: 'unknown' };
     }
     return { status: res.rows[0].status, timestamp: new Date().toISOString() };
+  }
+
+  async deactivateDevice(deviceId: string): Promise<any> {
+    await this.db.query(
+      "UPDATE devices SET status = 'revoked', revoked_at = now() WHERE device_identifier = $1",
+      [deviceId]
+    );
+    return { success: true, message: 'Device deactivated and slot released.' };
   }
 }

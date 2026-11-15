@@ -15,6 +15,11 @@ export class DevicesController {
     return this.devicesService.activateDevice(body);
   }
 
+  @Post('deactivate')
+  async deactivate(@Body() body: { device_id: string }) {
+    return this.devicesService.deactivateDevice(body.device_id);
+  }
+
   @Post('heartbeat')
   async heartbeat(@Body() body: { device_id: string }) {
     return this.devicesService.heartbeat(body.device_id);

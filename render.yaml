@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: tailorbook-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: LICENSE_SIGNING_KEY
+        value: tailorbook_server_offline_license_signing_secret_2026
+      - key: JWT_SECRET
+        value: tailorbook_secure_jwt_secret_pilot_key_2026
