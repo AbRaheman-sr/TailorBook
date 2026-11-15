@@ -40,11 +40,13 @@ export default function App() {
       } else {
         // Strict Gatekeeping: Unregistered devices MUST activate before accessing any app feature
         setLicense(null);
+        setTotalBills(0);
         setCurrentScreen('activate');
       }
     } catch (err) {
       console.error('Initialization error:', err);
       setLicense(null);
+      setTotalBills(0);
       setCurrentScreen('activate');
     } finally {
       setIsInitializing(false);
@@ -55,16 +57,29 @@ export default function App() {
     initApp();
   }, [initApp]);
 
-  const refreshTotalBills = async () => {
-    if (license) {
-      const count = await getTotalBillsCount(license.tenant_id);
-      setTotalBills(count);
+  // Synchronize customer bill count strictly to the active shop tenant
+  useEffect(() => {
+    if (license?.tenant_id) {
+      getTotalBillsCount(license.tenant_id).then((count) => setTotalBills(count));
+    } else {
+      setTotalBills(0);
     }
-  };
+  }, [license?.tenant_id]);
+
+  const refreshTotalBills = useCallback(async (targetTenantId?: string) => {
+    const id = targetTenantId || license?.tenant_id;
+    if (id) {
+      const count = await getTotalBillsCount(id);
+      setTotalBills(count);
+    } else {
+      setTotalBills(0);
+    }
+  }, [license?.tenant_id]);
 
   const handleDeactivate = async () => {
     await clearLicense();
     setLicense(null);
+    setTotalBills(0);
     setCurrentScreen('activate');
   };
 
@@ -85,10 +100,11 @@ export default function App() {
           <ActivationScreen
             currentLicense={license}
             onBack={license ? () => setCurrentScreen('home') : undefined}
-            onActivated={(newLic) => {
+            onActivated={async (newLic) => {
               setLicense(newLic);
+              const count = await getTotalBillsCount(newLic.tenant_id);
+              setTotalBills(count);
               setCurrentScreen('home');
-              refreshTotalBills();
             }}
           />
         </View>
