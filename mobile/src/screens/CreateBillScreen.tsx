@@ -115,7 +115,7 @@ export function CreateBillScreen({ tenantId, onBack, onBillCreated }: CreateBill
         photo_path: relativePhotoPath,
       });
 
-      Alert.alert('Success', `Bill #${cleanBillNo} saved successfully!`, [
+      Alert.alert('Success', `Bill #${cleanBillNo} recorded in shop database!`, [
         {
           text: 'OK',
           onPress: () => {
@@ -146,24 +146,24 @@ export function CreateBillScreen({ tenantId, onBack, onBillCreated }: CreateBill
           <TouchableOpacity onPress={onBack} style={styles.backBtn}>
             <Text style={styles.backBtnText}>← Back</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create New Bill</Text>
+          <Text style={styles.headerTitle}>Create Customer Bill</Text>
           <View style={{ width: 50 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Bill Number */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Bill Number *</Text>
+            <Text style={styles.label}>Customer Bill / Receipt # *</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 00125 or B-45"
+              placeholder="e.g. 101 or B-45"
               placeholderTextColor="#9AA6B2"
               value={billNumber}
               onChangeText={setBillNumber}
               autoCapitalize="characters"
               autoCorrect={false}
             />
-            <Text style={styles.hint}>Leading zeros will be preserved exactly as typed.</Text>
+            <Text style={styles.hint}>Enter the order or receipt number from your physical tailor book.</Text>
           </View>
 
           {/* Customer Mobile */}
@@ -182,7 +182,7 @@ export function CreateBillScreen({ tenantId, onBack, onBillCreated }: CreateBill
 
           {/* Bill Photograph */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Bill Photograph *</Text>
+            <Text style={styles.label}>Physical Bill / Order Receipt Photo *</Text>
 
             {photoUri ? (
               <View style={styles.photoPreviewCard}>
@@ -199,7 +199,7 @@ export function CreateBillScreen({ tenantId, onBack, onBillCreated }: CreateBill
             ) : (
               <View style={styles.photoCaptureBox}>
                 <Text style={styles.captureInstructions}>
-                  Take a clear picture of the physical bill receipt.
+                  Capture a clear photo of the customer's physical bill receipt.
                 </Text>
                 <View style={styles.captureButtonsRow}>
                   <TouchableOpacity style={styles.captureBtn} onPress={handleTakePhoto}>
@@ -225,7 +225,7 @@ export function CreateBillScreen({ tenantId, onBack, onBillCreated }: CreateBill
             {isSaving ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.saveBtnText}>Save Bill to Phone</Text>
+              <Text style={styles.saveBtnText}>Save Bill to Shop Records</Text>
             )}
           </TouchableOpacity>
         </ScrollView>

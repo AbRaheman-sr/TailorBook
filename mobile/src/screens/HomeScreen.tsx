@@ -42,7 +42,7 @@ export function HomeScreen({ license, onNavigate, totalBills }: HomeScreenProps)
           {/* Quick Counter */}
           <View style={styles.counterBox}>
             <Text style={styles.counterNumber}>{totalBills}</Text>
-            <Text style={styles.counterLabel}>Local Bills Stored</Text>
+            <Text style={styles.counterLabel}>Customer Bills Stored</Text>
           </View>
         </View>
 
@@ -58,8 +58,8 @@ export function HomeScreen({ license, onNavigate, totalBills }: HomeScreenProps)
           >
             <Text style={styles.buttonIcon}>＋</Text>
             <View>
-              <Text style={styles.buttonTitle}>Create New Bill</Text>
-              <Text style={styles.buttonSubtitle}>Record bill number & capture photo</Text>
+              <Text style={styles.buttonTitle}>Create Customer Bill</Text>
+              <Text style={styles.buttonSubtitle}>Record customer bill # & capture receipt photo</Text>
             </View>
           </TouchableOpacity>
 
@@ -71,29 +71,17 @@ export function HomeScreen({ license, onNavigate, totalBills }: HomeScreenProps)
             <Text style={[styles.buttonIcon, styles.buttonIconSecondary]}>⌕</Text>
             <View>
               <Text style={[styles.buttonTitle, styles.buttonTitleSecondary]}>
-                Search Existing Bills
+                Search Customer Bills
               </Text>
               <Text style={styles.buttonSubtitleSecondary}>
-                Search by bill number, phone, or voice
+                Search by bill number or customer mobile
               </Text>
             </View>
           </TouchableOpacity>
-
-          {!license && (
-            <TouchableOpacity
-              style={styles.activationNotice}
-              onPress={() => onNavigate('activate')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.activationNoticeText}>
-                ⚠️ Tap here to activate your shop license
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Footer */}
-        <Text style={styles.footerNote}>100% Offline · Private · Fast</Text>
+        <Text style={styles.footerNote}>TailorBook · 100% Offline & Private</Text>
       </View>
     </SafeAreaView>
   );

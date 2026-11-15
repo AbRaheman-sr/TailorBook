@@ -140,7 +140,7 @@ export function SettingsScreen({
             <View style={styles.divider} />
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Total Bills Stored</Text>
+              <Text style={styles.infoLabel}>Customer Bills Stored</Text>
               <Text style={styles.infoValue}>{totalBills}</Text>
             </View>
 
@@ -149,7 +149,7 @@ export function SettingsScreen({
               onPress={license ? handleDeactivate : onNavigateActivate}
             >
               <Text style={styles.activationActionText}>
-                {license ? 'Change or Deactivate Shop' : 'Activate Shop License'}
+                {license ? 'Deactivate Shop on Device' : 'Activate Shop License'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -173,7 +173,7 @@ export function SettingsScreen({
               ) : (
                 <>
                   <Text style={styles.actionBtnIcon}>📦</Text>
-                  <Text style={styles.actionBtnText}>Export Backup (ZIP)</Text>
+                  <Text style={styles.actionBtnText}>Export Shop Backup (ZIP)</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -190,7 +190,7 @@ export function SettingsScreen({
                 <>
                   <Text style={styles.actionBtnIcon}>📂</Text>
                   <Text style={[styles.actionBtnText, { color: '#1A3C5E' }]}>
-                    Restore From Backup
+                    Restore Shop Backup
                   </Text>
                 </>
               )}
@@ -207,7 +207,7 @@ export function SettingsScreen({
             <View style={styles.divider} />
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Version</Text>
-              <Text style={styles.infoValue}>1.0.0 (Production Pilot)</Text>
+              <Text style={styles.infoValue}>1.0.0 (Release)</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.infoRow}>

@@ -14,8 +14,7 @@
       "package": "com.tailorbook.app",
       "usesCleartextTraffic": true,
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.CAMERA"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#1A3C5E",

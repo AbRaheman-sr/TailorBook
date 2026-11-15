@@ -4,7 +4,7 @@ import { ShopLicense } from '../types';
 
 const LICENSE_KEY = 'tailorbook_shop_license';
 const DEVICE_ID_KEY = 'tailorbook_device_id';
-export const DEFAULT_SERVER_URL = 'http://192.168.1.24:3000/api';
+export const DEFAULT_SERVER_URL = 'https://conventional-dublin-ron-haven.trycloudflare.com/api';
 
 /**
  * Returns or creates a persistent cryptographic device ID for this phone.

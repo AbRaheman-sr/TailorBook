@@ -29,7 +29,6 @@ export function SearchBillsScreen({
   const [query, setQuery] = useState('');
   const [bills, setBills] = useState<Bill[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
 
   const fetchResults = useCallback(async (searchQuery: string) => {
     setIsLoading(true);
@@ -46,26 +45,6 @@ export function SearchBillsScreen({
   useEffect(() => {
     fetchResults(query);
   }, [query, fetchResults]);
-
-  // Voice Search Handler
-  const handleVoiceSearch = () => {
-    Alert.prompt
-      ? Alert.prompt(
-          '🎤 Voice Search',
-          'Speak or type your bill number or customer phone:',
-          (text) => {
-            if (text && text.trim()) {
-              setQuery(text.trim());
-            }
-          },
-          'plain-text',
-          query
-        )
-      : Alert.alert(
-          '🎤 Voice Search',
-          'To search with voice, tap the search input and use the microphone button on your Android keyboard.\n\nYou can speak numbers in English or Hindi (e.g., "125" or "9876543210").'
-        );
-  };
 
   const renderItem = ({ item }: { item: Bill }) => {
     const photoUri = getAbsolutePhotoUri(item.photo_path);
@@ -102,17 +81,17 @@ export function SearchBillsScreen({
           <TouchableOpacity onPress={onBack} style={styles.backBtn}>
             <Text style={styles.backBtnText}>← Back</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Search Bills</Text>
+          <Text style={styles.headerTitle}>Search Customer Bills</Text>
           <View style={{ width: 50 }} />
         </View>
 
-        {/* Search Bar with Mic Button */}
+        {/* Search Bar */}
         <View style={styles.searchBarContainer}>
           <View style={styles.searchInputWrapper}>
             <Text style={styles.searchIcon}>⌕</Text>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search by Bill # or Mobile No..."
+              placeholder="Search by Bill # or Customer Mobile..."
               placeholderTextColor="#8C9CAE"
               value={query}
               onChangeText={setQuery}
@@ -125,20 +104,12 @@ export function SearchBillsScreen({
               </TouchableOpacity>
             )}
           </View>
-
-          <TouchableOpacity
-            style={[styles.micBtn, isListening && styles.micBtnActive]}
-            onPress={handleVoiceSearch}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.micBtnIcon}>🎤</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Results Info */}
         <View style={styles.resultsHeader}>
           <Text style={styles.resultsCount}>
-            {isLoading ? 'Searching...' : `${bills.length} bill${bills.length === 1 ? '' : 's'} found`}
+            {isLoading ? 'Searching...' : `${bills.length} customer bill${bills.length === 1 ? '' : 's'} found`}
           </Text>
         </View>
 
@@ -150,11 +121,11 @@ export function SearchBillsScreen({
         ) : bills.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>🔍</Text>
-            <Text style={styles.emptyTitle}>No Bills Found</Text>
+            <Text style={styles.emptyTitle}>No Customer Bills Found</Text>
             <Text style={styles.emptySubtitle}>
               {query
-                ? `No bills match "${query}". Try another bill number or phone number.`
-                : 'No bills have been created yet.'}
+                ? `No customer bills match "${query}". Try searching by another bill # or customer mobile.`
+                : 'No customer bills recorded yet. Go to Home and tap "Create New Bill" to record your first order.'}
             </Text>
           </View>
         ) : (
@@ -239,20 +210,6 @@ const styles = StyleSheet.create({
   clearBtnText: {
     color: '#8C9CAE',
     fontSize: 14,
-  },
-  micBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: BRAND_MID,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  micBtnActive: {
-    backgroundColor: '#E53E3E',
-  },
-  micBtnIcon: {
-    fontSize: 20,
   },
   resultsHeader: {
     paddingHorizontal: 18,
