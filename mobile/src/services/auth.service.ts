@@ -4,7 +4,7 @@ import { ShopLicense } from '../types';
 
 const LICENSE_KEY = 'tailorbook_shop_license';
 const DEVICE_ID_KEY = 'tailorbook_device_id';
-export const DEFAULT_SERVER_URL = 'https://conventional-dublin-ron-haven.trycloudflare.com/api';
+export const DEFAULT_SERVER_URL = 'https://bracket-kilometers-march-suse.trycloudflare.com/api';
 
 /**
  * Returns or creates a persistent cryptographic device ID for this phone.
@@ -56,8 +56,17 @@ export async function saveLicense(license: ShopLicense): Promise<void> {
 
 /**
  * Removes shop activation from device (deactivates / logs out).
+ * Frees the device slot on the backend if online.
  */
 export async function clearLicense(): Promise<void> {
+  try {
+    const deviceId = await getDeviceId();
+    fetch(`${DEFAULT_SERVER_URL}/devices/deactivate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId }),
+    }).catch(() => { });
+  } catch { }
   await SecureStore.deleteItemAsync(LICENSE_KEY);
 }
 

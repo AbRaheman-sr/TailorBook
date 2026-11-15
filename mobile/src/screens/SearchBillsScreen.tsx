@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,8 +9,9 @@ import {
   Image,
   ActivityIndicator,
   SafeAreaView,
-  Alert,
+  Platform,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { searchBills } from '../database/bill.service';
 import { getAbsolutePhotoUri } from '../services/storage.service';
 import { Bill } from '../types';
@@ -21,6 +22,50 @@ interface SearchBillsScreenProps {
   onSelectBill: (bill: Bill) => void;
 }
 
+// Memoized Bill Card for high performance list rendering
+const BillCard = React.memo(function BillCard({
+  item,
+  onPress,
+}: {
+  item: Bill;
+  onPress: (bill: Bill) => void;
+}) {
+  const photoUri = useMemo(() => getAbsolutePhotoUri(item.photo_path), [item.photo_path]);
+  const dateFormatted = useMemo(() => {
+    return new Date(item.created_at).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  }, [item.created_at]);
+
+  return (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => onPress(item)}
+      activeOpacity={0.75}
+    >
+      <Image source={{ uri: photoUri }} style={styles.thumbnail} resizeMode="cover" />
+      <View style={styles.cardContent}>
+        <View style={styles.cardHeaderRow}>
+          <View style={styles.billBadge}>
+            <Text style={styles.billNumber}>#{item.bill_number}</Text>
+          </View>
+          <View style={styles.dateRow}>
+            <Ionicons name="calendar-outline" size={12} color="#94A3B8" style={{ marginRight: 4 }} />
+            <Text style={styles.billDate}>{dateFormatted}</Text>
+          </View>
+        </View>
+        <View style={styles.phoneRow}>
+          <Ionicons name="call-outline" size={13} color="#2B5C8A" style={{ marginRight: 6 }} />
+          <Text style={styles.customerPhone}>{item.customer_phone}</Text>
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color="#CBD5E1" style={styles.chevron} />
+    </TouchableOpacity>
+  );
+});
+
 export function SearchBillsScreen({
   tenantId,
   onBack,
@@ -29,6 +74,7 @@ export function SearchBillsScreen({
   const [query, setQuery] = useState('');
   const [bills, setBills] = useState<Bill[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchResults = useCallback(async (searchQuery: string) => {
     setIsLoading(true);
@@ -43,64 +89,61 @@ export function SearchBillsScreen({
   }, [tenantId]);
 
   useEffect(() => {
-    fetchResults(query);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    if (!query) {
+      fetchResults('');
+    } else {
+      debounceTimerRef.current = setTimeout(() => {
+        fetchResults(query);
+      }, 150);
+    }
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [query, fetchResults]);
 
-  const renderItem = ({ item }: { item: Bill }) => {
-    const photoUri = getAbsolutePhotoUri(item.photo_path);
-    const dateFormatted = new Date(item.created_at).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
+  const renderItem = useCallback(
+    ({ item }: { item: Bill }) => <BillCard item={item} onPress={onSelectBill} />,
+    [onSelectBill]
+  );
 
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => onSelectBill(item)}
-        activeOpacity={0.75}
-      >
-        <Image source={{ uri: photoUri }} style={styles.thumbnail} resizeMode="cover" />
-        <View style={styles.cardContent}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.billNumber}>Bill #{item.bill_number}</Text>
-            <Text style={styles.billDate}>{dateFormatted}</Text>
-          </View>
-          <Text style={styles.customerPhone}>📞 {item.customer_phone}</Text>
-        </View>
-        <Text style={styles.chevron}>›</Text>
-      </TouchableOpacity>
-    );
-  };
+  const keyExtractor = useCallback((item: Bill) => item.id, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Back</Text>
+          <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={24} color="#E0EEF9" />
+            <Text style={styles.backBtnText}>Back</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Search Customer Bills</Text>
-          <View style={{ width: 50 }} />
+          <View style={{ width: 60 }} />
         </View>
 
         {/* Search Bar */}
         <View style={styles.searchBarContainer}>
           <View style={styles.searchInputWrapper}>
-            <Text style={styles.searchIcon}>⌕</Text>
+            <Ionicons name="search" size={18} color="#64748B" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search by Bill # or Customer Mobile..."
-              placeholderTextColor="#8C9CAE"
+              placeholderTextColor="#94A3B8"
               value={query}
               onChangeText={setQuery}
               autoCorrect={false}
               clearButtonMode="while-editing"
             />
             {query.length > 0 && (
-              <TouchableOpacity onPress={() => setQuery('')} style={styles.clearBtn}>
-                <Text style={styles.clearBtnText}>✕</Text>
+              <TouchableOpacity onPress={() => setQuery('')} style={styles.clearBtn} activeOpacity={0.7}>
+                <Ionicons name="close-circle" size={18} color="#94A3B8" />
               </TouchableOpacity>
             )}
           </View>
@@ -120,20 +163,26 @@ export function SearchBillsScreen({
           </View>
         ) : bills.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🔍</Text>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="receipt-outline" size={36} color="#94A3B8" />
+            </View>
             <Text style={styles.emptyTitle}>No Customer Bills Found</Text>
             <Text style={styles.emptySubtitle}>
               {query
                 ? `No customer bills match "${query}". Try searching by another bill # or customer mobile.`
-                : 'No customer bills recorded yet. Go to Home and tap "Create New Bill" to record your first order.'}
+                : 'No customer bills recorded yet. Go to Home and tap "Create Customer Bill" to record your first order.'}
             </Text>
           </View>
         ) : (
           <FlatList
             data={bills}
-            keyExtractor={(item) => item.id}
+            keyExtractor={keyExtractor}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === 'android'}
           />
         )}
       </View>
@@ -163,12 +212,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   backBtn: {
-    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 6,
   },
   backBtnText: {
     color: '#E0EEF9',
     fontSize: 15,
     fontWeight: '600',
+    marginLeft: 4,
   },
   headerTitle: {
     color: '#FFFFFF',
@@ -176,49 +228,41 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   searchBarContainer: {
-    flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
-    gap: 10,
-    alignItems: 'center',
   },
   searchInputWrapper: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 12,
   },
   searchIcon: {
-    fontSize: 18,
-    color: '#8C9CAE',
-    marginRight: 6,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 10,
-    fontSize: 15,
+    paddingVertical: 11,
+    fontSize: 14,
     color: '#1A3C5E',
   },
   clearBtn: {
     padding: 6,
-  },
-  clearBtnText: {
-    color: '#8C9CAE',
-    fontSize: 14,
   },
   resultsHeader: {
     paddingHorizontal: 18,
     paddingVertical: 10,
   },
   resultsCount: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -229,18 +273,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   thumbnail: {
     width: 60,
     height: 60,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: '#E2E8F0',
     marginRight: 14,
   },
@@ -251,53 +297,70 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  billBadge: {
+    backgroundColor: '#E0EEF9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   billNumber: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
     color: '#1A3C5E',
   },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   billDate: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   customerPhone: {
     fontSize: 14,
+    fontWeight: '600',
     color: '#334155',
-    fontWeight: '500',
   },
   chevron: {
-    fontSize: 24,
-    color: '#94A3B8',
     marginLeft: 8,
   },
   centered: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyContainer: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    alignItems: 'center',
+    paddingHorizontal: 36,
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: '#1A3C5E',
     marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
 });
-

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
+import { toastConfig } from './src/components/CustomToast';
 
 import { getDatabase } from './src/database/database';
 import { getTotalBillsCount } from './src/database/bill.service';
@@ -90,6 +92,7 @@ export default function App() {
             }}
           />
         </View>
+        <Toast config={toastConfig} />
       </SafeAreaProvider>
     );
   }
@@ -147,6 +150,7 @@ export default function App() {
           />
         )}
       </View>
+      <Toast config={toastConfig} />
     </SafeAreaProvider>
   );
 }

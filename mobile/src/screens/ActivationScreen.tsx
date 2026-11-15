@@ -6,18 +6,20 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import Feather from '@expo/vector-icons/Feather';
 import {
   activateShop,
   testBackendConnection,
   normalizeServerUrl,
   DEFAULT_SERVER_URL,
 } from '../services/auth.service';
+import { showToast } from '../services/toast.service';
 import { ShopLicense } from '../types';
 
 interface ActivationScreenProps {
@@ -50,11 +52,15 @@ export function ActivationScreen({
       }
       const res = await testBackendConnection(normalized);
       setTestResult(res);
-      Alert.alert(res.success ? '✓ Server Reached' : '✗ Connection Failed', res.message);
+      if (res.success) {
+        showToast.success('Server Online', 'Backend connected to Supabase database!');
+      } else {
+        showToast.error('Connection Failed', res.message);
+      }
     } catch (err: any) {
       const msg = err.message || 'Unknown network error.';
       setTestResult({ success: false, message: msg });
-      Alert.alert('✗ Connection Error', msg);
+      showToast.error('Connection Error', msg);
     } finally {
       setIsTesting(false);
     }
@@ -65,7 +71,7 @@ export function ActivationScreen({
     const cleanPass = password.trim();
 
     if (!cleanUser || !cleanPass) {
-      Alert.alert('Required Fields', 'Please enter your shop username and password.');
+      showToast.error('Required Fields', 'Please enter your shop username and password.');
       return;
     }
 
@@ -77,19 +83,13 @@ export function ActivationScreen({
       }
       const result = await activateShop(normalized, cleanUser, cleanPass);
       if (result.success && result.license) {
-        Alert.alert('✓ Authorized', result.message, [
-          {
-            text: 'Open Shop',
-            onPress: () => {
-              onActivated(result.license!);
-            },
-          },
-        ]);
+        showToast.success('Shop Authorized', `Welcome, ${result.license.tenant_name}!`);
+        onActivated(result.license);
       } else {
-        Alert.alert('Activation Failed', result.message);
+        showToast.error('Authorization Failed', result.message);
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Activation failed.');
+      showToast.error('Error', err.message || 'Activation failed.');
     } finally {
       setIsLoading(false);
     }
@@ -104,21 +104,22 @@ export function ActivationScreen({
         {/* Header */}
         <View style={styles.header}>
           {onBack ? (
-            <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-              <Text style={styles.backBtnText}>← Back</Text>
+            <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+              <Ionicons name="arrow-back" size={24} color="#E0EEF9" />
+              <Text style={styles.backBtnText}>Back</Text>
             </TouchableOpacity>
           ) : (
-            <View style={{ width: 50 }} />
+            <View style={{ width: 60 }} />
           )}
           <Text style={styles.headerTitle}>TailorBook</Text>
-          <View style={{ width: 50 }} />
+          <View style={{ width: 60 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           {/* Logo / Branding Header */}
           <View style={styles.brandHeader}>
             <View style={styles.logoBadge}>
-              <Text style={styles.logoIcon}>✂</Text>
+              <Feather name="scissors" size={30} color="#F5A623" />
             </View>
             <Text style={styles.brandTitle}>Shop Authorization</Text>
             <Text style={styles.brandSubtitle}>
@@ -128,9 +129,12 @@ export function ActivationScreen({
 
           {currentLicense && (
             <View style={styles.activeBanner}>
-              <Text style={styles.activeBannerTitle}>✓ Currently Active</Text>
-              <Text style={styles.activeBannerText}>Shop: {currentLicense.tenant_name}</Text>
-              <Text style={styles.activeBannerSub}>Device: {currentLicense.device_id}</Text>
+              <Ionicons name="checkmark-circle" size={22} color="#16A34A" style={{ marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.activeBannerTitle}>Currently Active</Text>
+                <Text style={styles.activeBannerText}>Shop: {currentLicense.tenant_name}</Text>
+                <Text style={styles.activeBannerSub}>Device: {currentLicense.device_id}</Text>
+              </View>
             </View>
           )}
 
@@ -139,23 +143,27 @@ export function ActivationScreen({
             {/* Username */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Shop Username *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. startailor"
-                placeholderTextColor="#9AA6B2"
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <View style={styles.inputWrapper}>
+                <Ionicons name="person-outline" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. startailor"
+                  placeholderTextColor="#9AA6B2"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
             </View>
 
             {/* Password */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Shop Password *</Text>
-              <View style={styles.passwordInputContainer}>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="lock-closed-outline" size={20} color="#64748B" style={styles.inputIcon} />
                 <TextInput
-                  style={styles.passwordInput}
+                  style={styles.input}
                   placeholder="Enter shop password"
                   placeholderTextColor="#9AA6B2"
                   value={password}
@@ -170,9 +178,12 @@ export function ActivationScreen({
                   activeOpacity={0.7}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                  accessibilityRole="button"
                 >
-                  <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '🔒'}</Text>
+                  <Ionicons
+                    name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                    size={22}
+                    color="#64748B"
+                  />
                 </TouchableOpacity>
               </View>
             </View>
@@ -184,24 +195,30 @@ export function ActivationScreen({
                 <TouchableOpacity
                   onPress={() => setServerUrl(DEFAULT_SERVER_URL)}
                   style={styles.resetBtn}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.resetBtnText}>Reset Default</Text>
+                  <Ionicons name="refresh-outline" size={13} color="#2B5C8A" style={{ marginRight: 4 }} />
+                  <Text style={styles.resetBtnText}>Default</Text>
                 </TouchableOpacity>
               </View>
-              <TextInput
-                style={styles.input}
-                placeholder="https://your-domain.com/api"
-                placeholderTextColor="#9AA6B2"
-                value={serverUrl}
-                onChangeText={setServerUrl}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <View style={styles.inputWrapper}>
+                <Ionicons name="globe-outline" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="https://your-domain.com/api"
+                  placeholderTextColor="#9AA6B2"
+                  value={serverUrl}
+                  onChangeText={setServerUrl}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
 
               {/* Network Tip */}
               <View style={styles.networkNote}>
+                <Ionicons name="information-circle-outline" size={16} color="#0369A1" style={{ marginRight: 6 }} />
                 <Text style={styles.networkNoteText}>
-                  🌐 <Text style={{ fontWeight: '700' }}>Mobile Data vs Wi-Fi:</Text> For Mobile Data (4G/5G), use your public HTTPS server URL. For local Wi-Fi testing, use http://192.168.1.24:3000/api.
+                  <Text style={{ fontWeight: '700' }}>Mobile Data & Wi-Fi:</Text> Works seamlessly over 4G/5G mobile data and local Wi-Fi.
                 </Text>
               </View>
 
@@ -215,7 +232,10 @@ export function ActivationScreen({
                 {isTesting ? (
                   <ActivityIndicator size="small" color="#1A3C5E" />
                 ) : (
-                  <Text style={styles.testBtnText}>⚡ Test Connection</Text>
+                  <>
+                    <Ionicons name="flash-outline" size={16} color="#1A3C5E" style={{ marginRight: 6 }} />
+                    <Text style={styles.testBtnText}>Test Server Connection</Text>
+                  </>
                 )}
               </TouchableOpacity>
 
@@ -226,13 +246,19 @@ export function ActivationScreen({
                     testResult.success ? styles.testSuccessBox : styles.testErrorBox,
                   ]}
                 >
+                  <Ionicons
+                    name={testResult.success ? 'checkmark-circle' : 'close-circle'}
+                    size={16}
+                    color={testResult.success ? '#16A34A' : '#DC2626'}
+                    style={{ marginRight: 6 }}
+                  />
                   <Text
                     style={[
                       styles.testStatusText,
                       testResult.success ? styles.testSuccessText : styles.testErrorText,
                     ]}
                   >
-                    {testResult.success ? '● Server is online and reachable!' : '● Server unreachable. Tap Test Connection for details.'}
+                    {testResult.success ? 'Server is online and reachable!' : 'Server unreachable. Tap Test Connection.'}
                   </Text>
                 </View>
               )}
@@ -248,19 +274,25 @@ export function ActivationScreen({
               {isLoading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.activateBtnText}>Authorize & Unlock App</Text>
+                <>
+                  <Ionicons name="key-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.activateBtnText}>Authorize & Unlock App</Text>
+                </>
               )}
             </TouchableOpacity>
           </View>
 
           {/* Security Notice */}
           <View style={styles.securityBox}>
-            <Text style={styles.securityTitle}>🔒 Security & Offline Protection</Text>
+            <View style={styles.securityHeaderRow}>
+              <Ionicons name="shield-checkmark-outline" size={18} color="#1A3C5E" style={{ marginRight: 6 }} />
+              <Text style={styles.securityTitle}>Security & Offline Protection</Text>
+            </View>
             <Text style={styles.securityText}>
               • Only authorized shops registered in the admin portal can access TailorBook.
             </Text>
             <Text style={styles.securityText}>
-              • After initial online authorization, all bills, photos, and searches remain 100% on your device and work completely offline without needing internet.
+              • After initial online authorization, all bills, photos, and searches remain 100% on your device and work completely offline without internet.
             </Text>
           </View>
         </ScrollView>
@@ -291,12 +323,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   backBtn: {
-    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 6,
   },
   backBtnText: {
     color: '#E0EEF9',
     fontSize: 15,
     fontWeight: '600',
+    marginLeft: 4,
   },
   headerTitle: {
     color: '#FFFFFF',
@@ -313,9 +348,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logoBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: BRAND_DARK,
     justifyContent: 'center',
     alignItems: 'center',
@@ -323,12 +358,8 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  logoIcon: {
-    fontSize: 28,
-    color: ACCENT,
+    shadowRadius: 5,
+    elevation: 4,
   },
   brandTitle: {
     fontSize: 22,
@@ -344,38 +375,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   activeBanner: {
-    backgroundColor: '#E8F5E9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
     borderWidth: 1.5,
-    borderColor: '#C8E6C9',
-    borderRadius: 12,
+    borderColor: '#A7F3D0',
+    borderRadius: 14,
     padding: 14,
     marginBottom: 16,
   },
   activeBannerTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: '#15803D',
     marginBottom: 2,
   },
   activeBannerText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1B5E20',
+    color: '#166534',
   },
   activeBannerSub: {
     fontSize: 11,
-    color: '#4CAF50',
+    color: '#22C55E',
     marginTop: 2,
   },
   formCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
     marginBottom: 20,
   },
   inputGroup: {
@@ -394,6 +427,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   resetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 2,
     paddingHorizontal: 6,
   },
@@ -402,26 +437,19 @@ const styles = StyleSheet.create({
     color: BRAND_MID,
     fontWeight: '600',
   },
-  input: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#1E293B',
-  },
-  passwordInputContainer: {
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    borderRadius: 12,
+    paddingHorizontal: 12,
   },
-  passwordInput: {
+  inputIcon: {
+    marginRight: 8,
+  },
+  input: {
     flex: 1,
     paddingVertical: 12,
     fontSize: 15,
@@ -429,33 +457,33 @@ const styles = StyleSheet.create({
   },
   eyeBtn: {
     padding: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  eyeIcon: {
-    fontSize: 18,
   },
   networkNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#F0F9FF',
     borderWidth: 1,
     borderColor: '#BAE6FD',
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 10,
     marginTop: 8,
   },
   networkNoteText: {
+    flex: 1,
     fontSize: 11,
     color: '#0369A1',
     lineHeight: 16,
   },
   testBtn: {
-    marginTop: 8,
+    marginTop: 10,
     backgroundColor: '#E0EEF9',
     borderWidth: 1,
     borderColor: '#B8D5E5',
-    borderRadius: 8,
-    paddingVertical: 10,
+    borderRadius: 10,
+    paddingVertical: 11,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   testBtnText: {
     color: '#1A3C5E',
@@ -463,53 +491,62 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   testStatusBox: {
-    marginTop: 6,
-    padding: 8,
-    borderRadius: 6,
+    marginTop: 8,
+    padding: 9,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   testSuccessBox: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#ECFDF5',
   },
   testErrorBox: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FEF2F2',
   },
   testStatusText: {
     fontSize: 12,
     fontWeight: '600',
   },
   testSuccessText: {
-    color: '#2E7D32',
+    color: '#15803D',
   },
   testErrorText: {
-    color: '#C62828',
+    color: '#DC2626',
   },
   activateBtn: {
     backgroundColor: BRAND_DARK,
-    paddingVertical: 16,
+    paddingVertical: 15,
     borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
+    marginTop: 12,
   },
   btnDisabled: {
     opacity: 0.6,
   },
   activateBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
+    letterSpacing: 0.3,
   },
   securityBox: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
+  },
+  securityHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   securityTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
-    marginBottom: 6,
+    color: '#1A3C5E',
   },
   securityText: {
     fontSize: 12,

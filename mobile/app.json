@@ -38,6 +38,15 @@
           "photosPermission": "TailorBook requires access to your photos to attach bill photographs.",
           "cameraPermission": "TailorBook requires access to your camera to photograph physical customer receipts."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResources": true
+          }
+        }
       ]
     ],
     "extra": {

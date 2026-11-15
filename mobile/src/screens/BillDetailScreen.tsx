@@ -9,9 +9,11 @@ import {
   Alert,
   SafeAreaView,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Bill } from '../types';
 import { getAbsolutePhotoUri } from '../services/storage.service';
 import { deleteBill } from '../database/bill.service';
+import { showToast } from '../services/toast.service';
 
 interface BillDetailScreenProps {
   bill: Bill;
@@ -33,8 +35,8 @@ export function BillDetailScreen({ bill, onBack, onBillDeleted }: BillDetailScre
 
   const handleDelete = () => {
     Alert.alert(
-      'Delete Bill',
-      `Are you sure you want to permanently delete Bill #${bill.bill_number}? The photograph and record will be deleted.`,
+      'Delete Customer Bill',
+      `Are you sure you want to permanently delete Bill #${bill.bill_number}? The photograph and record will be removed from your device.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -44,17 +46,11 @@ export function BillDetailScreen({ bill, onBack, onBillDeleted }: BillDetailScre
             setIsDeleting(true);
             try {
               await deleteBill(bill.id, bill.tenant_id);
-              Alert.alert('Deleted', `Bill #${bill.bill_number} has been deleted.`, [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    onBillDeleted();
-                    onBack();
-                  },
-                },
-              ]);
+              showToast.success('Bill Deleted', `Bill #${bill.bill_number} removed.`);
+              onBillDeleted();
+              onBack();
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Could not delete bill.');
+              showToast.error('Delete Failed', err.message || 'Could not delete bill.');
             } finally {
               setIsDeleting(false);
             }
@@ -69,12 +65,19 @@ export function BillDetailScreen({ bill, onBack, onBillDeleted }: BillDetailScre
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Back</Text>
+          <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={24} color="#E0EEF9" />
+            <Text style={styles.backBtnText}>Back</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Bill Details</Text>
-          <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn} disabled={isDeleting}>
-            <Text style={styles.deleteBtnText}>🗑 Delete</Text>
+          <TouchableOpacity
+            onPress={handleDelete}
+            style={styles.deleteBtn}
+            disabled={isDeleting}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash-outline" size={18} color="#EF4444" style={{ marginRight: 4 }} />
+            <Text style={styles.deleteBtnText}>Delete</Text>
           </TouchableOpacity>
         </View>
 
@@ -82,26 +85,40 @@ export function BillDetailScreen({ bill, onBack, onBillDeleted }: BillDetailScre
           {/* Metadata Card */}
           <View style={styles.card}>
             <View style={styles.row}>
-              <Text style={styles.metaLabel}>Bill Number</Text>
-              <Text style={styles.metaValueHighlight}>#{bill.bill_number}</Text>
+              <View style={styles.labelCol}>
+                <Ionicons name="receipt-outline" size={18} color="#1A3C5E" style={{ marginRight: 8 }} />
+                <Text style={styles.metaLabel}>Bill / Order #</Text>
+              </View>
+              <View style={styles.billBadge}>
+                <Text style={styles.metaValueHighlight}>#{bill.bill_number}</Text>
+              </View>
             </View>
             <View style={styles.divider} />
 
             <View style={styles.row}>
-              <Text style={styles.metaLabel}>Customer Phone</Text>
+              <View style={styles.labelCol}>
+                <Ionicons name="call-outline" size={18} color="#1A3C5E" style={{ marginRight: 8 }} />
+                <Text style={styles.metaLabel}>Customer Phone</Text>
+              </View>
               <Text style={styles.metaValue}>{bill.customer_phone}</Text>
             </View>
             <View style={styles.divider} />
 
             <View style={styles.row}>
-              <Text style={styles.metaLabel}>Recorded On</Text>
+              <View style={styles.labelCol}>
+                <Ionicons name="calendar-outline" size={18} color="#1A3C5E" style={{ marginRight: 8 }} />
+                <Text style={styles.metaLabel}>Recorded On</Text>
+              </View>
               <Text style={styles.metaValueMuted}>{formattedDate}</Text>
             </View>
           </View>
 
           {/* Photograph Viewer */}
           <View style={styles.photoContainer}>
-            <Text style={styles.photoTitle}>Original Bill Photograph</Text>
+            <View style={styles.photoHeaderRow}>
+              <Ionicons name="image-outline" size={18} color="#1A3C5E" style={{ marginRight: 8 }} />
+              <Text style={styles.photoTitle}>Original Bill Photograph</Text>
+            </View>
             <View style={styles.photoWrapper}>
               <Image source={{ uri: photoUri }} style={styles.fullImage} resizeMode="contain" />
             </View>
@@ -132,12 +149,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   backBtn: {
-    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 6,
   },
   backBtnText: {
     color: '#E0EEF9',
     fontSize: 15,
     fontWeight: '600',
+    marginLeft: 4,
   },
   headerTitle: {
     color: '#FFFFFF',
@@ -145,78 +165,106 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   deleteBtn: {
-    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   deleteBtnText: {
-    color: '#FFA8A8',
-    fontSize: 14,
+    color: '#EF4444',
+    fontSize: 13,
     fontWeight: '700',
   },
   scrollContent: {
-    padding: 18,
+    padding: 16,
     paddingBottom: 40,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 20,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 3,
+    shadowRadius: 6,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#EDF2F7',
-    marginVertical: 4,
+  labelCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   metaLabel: {
     fontSize: 14,
     color: '#64748B',
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  metaValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
+  billBadge: {
+    backgroundColor: '#E0EEF9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   metaValueHighlight: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
     color: '#1A3C5E',
+  },
+  metaValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
   },
   metaValueMuted: {
     fontSize: 13,
     color: '#64748B',
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
   },
   photoContainer: {
-    marginTop: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  photoHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   photoTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#1A3C5E',
-    marginBottom: 10,
   },
   photoWrapper: {
-    backgroundColor: '#000000',
-    borderRadius: 14,
+    width: '100%',
+    height: 380,
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
     overflow: 'hidden',
-    height: 440,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   fullImage: {
     width: '100%',
     height: '100%',
   },
 });
-
