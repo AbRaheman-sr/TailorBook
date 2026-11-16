@@ -128,6 +128,14 @@ export function normalizeServerUrl(rawUrl: string): string {
 }
 
 /**
+ * Checks whether an error is caused by a missing internet/network connection.
+ */
+export function isOfflineError(err: any): boolean {
+  const msg = typeof err === 'string' ? err : (err?.message || String(err));
+  return /UnknownHostException|No address associated|Network request failed|fetch failed|ENOTFOUND|ConnectException|NoRouteToHostException|offline|internet|Host unreachable/i.test(msg);
+}
+
+/**
  * Converts network and runtime exceptions into clear, actionable error messages.
  */
 function parseNetworkError(err: any, targetUrl: string): string {
@@ -148,8 +156,15 @@ function parseNetworkError(err: any, targetUrl: string): string {
     );
   }
 
+  // Detect offline / no internet / host resolution failures
   if (
-    /ConnectException|Failed to connect|ECONNREFUSED|Network request failed|Network error|ENOTFOUND/i.test(msg)
+    /UnknownHostException|No address associated with hostname|ENOTFOUND|NoRouteToHostException|Host unreachable/i.test(msg)
+  ) {
+    return 'Please check your internet connection and try again.';
+  }
+
+  if (
+    /ConnectException|Failed to connect|ECONNREFUSED|Network request failed|Network error|fetch failed/i.test(msg)
   ) {
     if (isLocal) {
       return (
@@ -159,14 +174,11 @@ function parseNetworkError(err: any, targetUrl: string): string {
         `• If testing locally on PC, both phone and PC must be on the same Wi-Fi router.`
       );
     }
-    return `Cannot reach server at ${targetUrl}. Please check your mobile data or internet connection.`;
+    return 'Please check your internet connection and try again.';
   }
 
-  if (/aborted|timeout/i.test(msg)) {
-    return (
-      `Connection Timed Out:\n` +
-      `The server at ${targetUrl} did not respond within 15 seconds. Please check that the server is online and your mobile data/internet is active.`
-    );
+  if (/aborted|timeout|timed out/i.test(msg)) {
+    return 'Connection timed out. Please check your internet connection and try again.';
   }
 
   return `Connection error: ${msg}`;

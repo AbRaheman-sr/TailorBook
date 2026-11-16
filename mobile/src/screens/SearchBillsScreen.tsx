@@ -8,9 +8,9 @@ import {
   FlatList,
   Image,
   ActivityIndicator,
-  SafeAreaView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { searchBills } from '../database/bill.service';
 import { getAbsolutePhotoUri } from '../services/storage.service';
@@ -71,6 +71,10 @@ export function SearchBillsScreen({
   onBack,
   onSelectBill,
 }: SearchBillsScreenProps) {
+  const insets = useSafeAreaInsets();
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? 28 : 20) + 12;
+  const bottomPadding = Math.max(insets.bottom, 16);
+
   const [query, setQuery] = useState('');
   const [bills, setBills] = useState<Bill[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -116,10 +120,10 @@ export function SearchBillsScreen({
   const keyExtractor = useCallback((item: Bill) => item.id, []);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
+        {/* Header with Safe Area Notch Inset */}
+        <View style={[styles.header, { paddingTop: topPadding }]}>
           <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={24} color="#E0EEF9" />
             <Text style={styles.backBtnText}>Back</Text>
@@ -178,7 +182,7 @@ export function SearchBillsScreen({
             data={bills}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: bottomPadding + 20 }]}
             initialNumToRender={10}
             maxToRenderPerBatch={10}
             windowSize={5}
@@ -186,7 +190,7 @@ export function SearchBillsScreen({
           />
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -209,12 +213,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingBottom: 16,
+    minHeight: 56,
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    minHeight: 44,
   },
   backBtnText: {
     color: '#E0EEF9',

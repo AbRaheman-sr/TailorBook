@@ -8,15 +8,16 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { saveBillPhoto } from '../services/storage.service';
 import { createBill, DuplicateBillError } from '../database/bill.service';
 import { showToast } from '../services/toast.service';
+import { PhotoViewerModal } from '../components/PhotoViewerModal';
 
 interface CreateBillScreenProps {
   tenantId: string;
@@ -25,10 +26,15 @@ interface CreateBillScreenProps {
 }
 
 export function CreateBillScreen({ tenantId, onBack, onBillCreated }: CreateBillScreenProps) {
+  const insets = useSafeAreaInsets();
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? 28 : 20) + 12;
+  const bottomPadding = Math.max(insets.bottom, 16);
+
   const [billNumber, setBillNumber] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   // Take photo using device camera
   const handleTakePhoto = async () => {
@@ -132,13 +138,13 @@ export function CreateBillScreen({ tenantId, onBack, onBillCreated }: CreateBill
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Header */}
-        <View style={styles.header}>
+        {/* Header with Safe Area Notch Inset */}
+        <View style={[styles.header, { paddingTop: topPadding }]}>
           <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={24} color="#E0EEF9" />
             <Text style={styles.backBtnText}>Back</Text>
@@ -147,7 +153,10 @@ export function CreateBillScreen({ tenantId, onBack, onBillCreated }: CreateBill
           <View style={{ width: 60 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding + 24 }]}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.formCard}>
             {/* Bill Number */}
             <View style={styles.inputGroup}>
@@ -190,15 +199,33 @@ export function CreateBillScreen({ tenantId, onBack, onBillCreated }: CreateBill
 
               {photoUri ? (
                 <View style={styles.photoPreviewCard}>
-                  <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="cover" />
+                  <TouchableOpacity
+                    style={styles.previewImageTouchable}
+                    onPress={() => setShowPhotoModal(true)}
+                    activeOpacity={0.9}
+                  >
+                    <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="cover" />
+                    <View style={styles.fullscreenBadge}>
+                      <Ionicons name="expand-outline" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.fullscreenBadgeText}>Tap photo to preview full screen</Text>
+                    </View>
+                  </TouchableOpacity>
                   <View style={styles.photoActions}>
+                    <TouchableOpacity
+                      style={[styles.retakeBtn, styles.viewFullBtn]}
+                      onPress={() => setShowPhotoModal(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="eye-outline" size={16} color="#1A3C5E" style={{ marginRight: 4 }} />
+                      <Text style={styles.retakeBtnText}>Preview</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.retakeBtn} onPress={handleTakePhoto} activeOpacity={0.8}>
-                      <Ionicons name="camera-reverse-outline" size={16} color="#1A3C5E" style={{ marginRight: 6 }} />
-                      <Text style={styles.retakeBtnText}>Retake Photo</Text>
+                      <Ionicons name="camera-reverse-outline" size={16} color="#1A3C5E" style={{ marginRight: 4 }} />
+                      <Text style={styles.retakeBtnText}>Retake</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.retakeBtn} onPress={handlePickPhoto} activeOpacity={0.8}>
-                      <Ionicons name="images-outline" size={16} color="#1A3C5E" style={{ marginRight: 6 }} />
-                      <Text style={styles.retakeBtnText}>Choose Gallery</Text>
+                      <Ionicons name="images-outline" size={16} color="#1A3C5E" style={{ marginRight: 4 }} />
+                      <Text style={styles.retakeBtnText}>Gallery</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -247,7 +274,16 @@ export function CreateBillScreen({ tenantId, onBack, onBillCreated }: CreateBill
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      {/* Full-Screen Photo Viewer Modal */}
+      <PhotoViewerModal
+        visible={showPhotoModal}
+        photoUri={photoUri}
+        title={billNumber.trim() ? `Bill #${billNumber.trim()} Preview` : 'Receipt Photo Preview'}
+        subtitle="Confirm handwriting and measurement clarity before saving"
+        onClose={() => setShowPhotoModal(false)}
+      />
+    </View>
   );
 }
 
@@ -270,12 +306,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingBottom: 16,
+    minHeight: 56,
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    minHeight: 44,
   },
   backBtnText: {
     color: '#E0EEF9',
@@ -342,15 +381,42 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
     backgroundColor: '#000000',
   },
-  previewImage: {
+  previewImageTouchable: {
+    position: 'relative',
     width: '100%',
     height: 240,
+    backgroundColor: '#000000',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fullscreenBadge: {
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  fullscreenBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   photoActions: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     padding: 10,
-    gap: 10,
+    gap: 8,
+  },
+  viewFullBtn: {
+    backgroundColor: '#E0EEF9',
   },
   retakeBtn: {
     flex: 1,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, BackHandler } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/components/CustomToast';
@@ -75,6 +75,31 @@ export default function App() {
       setTotalBills(0);
     }
   }, [license?.tenant_id]);
+
+  // Industry-standard hardware & swipe gesture back navigation
+  const navigateBack = useCallback(() => {
+    if (currentScreen === 'bill-detail') {
+      setCurrentScreen('search');
+      return true;
+    }
+    if (currentScreen === 'create-bill' || currentScreen === 'search' || currentScreen === 'settings') {
+      setCurrentScreen('home');
+      return true;
+    }
+    if (currentScreen === 'activate' && license) {
+      setCurrentScreen('home');
+      return true;
+    }
+    // At root 'home', allow default Android behavior (exit app)
+    return false;
+  }, [currentScreen, license]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      return navigateBack();
+    });
+    return () => subscription.remove();
+  }, [navigateBack]);
 
   const handleDeactivate = async () => {
     await clearLicense();

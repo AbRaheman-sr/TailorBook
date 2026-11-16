@@ -7,8 +7,9 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ShopLicense } from '../types';
 import { createBackupArchive, restoreBackupArchive } from '../services/backup.service';
@@ -30,6 +31,10 @@ export function SettingsScreen({
   onNavigateActivate,
   onDataChanged,
 }: SettingsScreenProps) {
+  const insets = useSafeAreaInsets();
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? 28 : 20) + 12;
+  const bottomPadding = Math.max(insets.bottom, 16);
+
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -109,10 +114,10 @@ export function SettingsScreen({
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
+        {/* Header with Safe Area Notch Inset */}
+        <View style={[styles.header, { paddingTop: topPadding }]}>
           <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
@@ -120,7 +125,7 @@ export function SettingsScreen({
           <View style={{ width: 40 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding + 24 }]}>
           {/* Shop Account Section */}
           <Text style={styles.sectionHeader}>Shop & Authorization</Text>
           <View style={styles.card}>
@@ -244,7 +249,7 @@ export function SettingsScreen({
           </View>
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -266,12 +271,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingBottom: 16,
+    minHeight: 56,
   },
   backBtn: {
-    padding: 8,
+    padding: 10,
     borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     color: '#FFFFFF',

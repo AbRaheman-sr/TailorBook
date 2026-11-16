@@ -7,16 +7,17 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import {
   activateShop,
   testBackendConnection,
   normalizeServerUrl,
+  isOfflineError,
   DEFAULT_SERVER_URL,
 } from '../services/auth.service';
 import { showToast } from '../services/toast.service';
@@ -33,6 +34,10 @@ export function ActivationScreen({
   onBack,
   onActivated,
 }: ActivationScreenProps) {
+  const insets = useSafeAreaInsets();
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? 28 : 20) + 10;
+  const bottomPadding = Math.max(insets.bottom, 16);
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -55,12 +60,21 @@ export function ActivationScreen({
       if (res.success) {
         showToast.success('Server Online', 'Backend connected to Supabase database!');
       } else {
-        showToast.error('Connection Failed', res.message);
+        const isOffline = isOfflineError(res.message);
+        showToast.error(
+          isOffline ? 'No Internet Connection' : 'Connection Failed',
+          isOffline ? 'Please check your internet connection and try again.' : res.message
+        );
       }
     } catch (err: any) {
       const msg = err.message || 'Unknown network error.';
-      setTestResult({ success: false, message: msg });
-      showToast.error('Connection Error', msg);
+      const isOffline = isOfflineError(err);
+      const displayMsg = isOffline ? 'Please check your internet connection and try again.' : msg;
+      setTestResult({ success: false, message: displayMsg });
+      showToast.error(
+        isOffline ? 'No Internet Connection' : 'Connection Error',
+        displayMsg
+      );
     } finally {
       setIsTesting(false);
     }
@@ -86,23 +100,31 @@ export function ActivationScreen({
         showToast.success('Shop Authorized', `Welcome, ${result.license.tenant_name}!`);
         onActivated(result.license);
       } else {
-        showToast.error('Authorization Failed', result.message);
+        const isOffline = isOfflineError(result.message);
+        showToast.error(
+          isOffline ? 'No Internet Connection' : 'Authorization Failed',
+          isOffline ? 'Please check your internet connection and try again.' : result.message
+        );
       }
     } catch (err: any) {
-      showToast.error('Error', err.message || 'Activation failed.');
+      const isOffline = isOfflineError(err);
+      showToast.error(
+        isOffline ? 'No Internet Connection' : 'Error',
+        isOffline ? 'Please check your internet connection and try again.' : (err.message || 'Activation failed.')
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Header */}
-        <View style={styles.header}>
+        {/* Header with Safe Area Notch Inset */}
+        <View style={[styles.header, { paddingTop: topPadding }]}>
           {onBack ? (
             <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
               <Ionicons name="arrow-back" size={24} color="#E0EEF9" />
@@ -115,7 +137,10 @@ export function ActivationScreen({
           <View style={{ width: 60 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding + 24 }]}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Logo / Branding Header */}
           <View style={styles.brandHeader}>
             <View style={styles.logoBadge}>
@@ -258,7 +283,11 @@ export function ActivationScreen({
                       testResult.success ? styles.testSuccessText : styles.testErrorText,
                     ]}
                   >
-                    {testResult.success ? 'Server is online and reachable!' : 'Server unreachable. Tap Test Connection.'}
+                    {testResult.success
+                      ? 'Server is online and reachable!'
+                      : (isOfflineError(testResult.message)
+                          ? 'Please check your internet connection.'
+                          : testResult.message)}
                   </Text>
                 </View>
               )}
@@ -297,7 +326,7 @@ export function ActivationScreen({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -320,12 +349,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingBottom: 16,
+    minHeight: 56,
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    minHeight: 44,
   },
   backBtnText: {
     color: '#E0EEF9',
@@ -335,9 +367,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   scrollContent: {
     padding: 20,

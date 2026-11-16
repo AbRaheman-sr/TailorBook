@@ -4,8 +4,9 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import { ShopLicense } from '../types';
@@ -17,11 +18,15 @@ interface HomeScreenProps {
 }
 
 export function HomeScreen({ license, onNavigate, totalBills }: HomeScreenProps) {
+  const insets = useSafeAreaInsets();
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? 28 : 20) + 12;
+  const bottomPadding = Math.max(insets.bottom, 16);
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
+        {/* Header with Safe Area Notch Inset */}
+        <View style={[styles.header, { paddingTop: topPadding }]}>
           <View style={styles.topBar}>
             <View style={styles.badgeContainer}>
               <Ionicons
@@ -102,13 +107,13 @@ export function HomeScreen({ license, onNavigate, totalBills }: HomeScreenProps)
           </TouchableOpacity>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footerRow}>
+        {/* Footer with Bottom Inset */}
+        <View style={[styles.footerRow, { paddingBottom: bottomPadding }]}>
           <Ionicons name="shield-checkmark-outline" size={14} color="#64748B" style={{ marginRight: 6 }} />
           <Text style={styles.footerNote}>TailorBook · 100% Offline & Private</Text>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
