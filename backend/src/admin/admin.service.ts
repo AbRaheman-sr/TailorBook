@@ -125,6 +125,25 @@ export class AdminService {
   }
 
   async setDeviceStatus(deviceId: string, status: 'active' | 'revoked') {
+    if (status === 'active') {
+      const devRes = await this.db.query('SELECT tenant_id FROM devices WHERE id = $1', [deviceId]);
+      if (devRes.rowCount && devRes.rowCount > 0) {
+        const tenantId = devRes.rows[0].tenant_id;
+        const tenantRes = await this.db.query('SELECT max_devices FROM tenants WHERE id = $1', [tenantId]);
+        const maxDevices = tenantRes.rows[0]?.max_devices || 1;
+        const countRes = await this.db.query(
+          "SELECT COUNT(*) as count FROM devices WHERE tenant_id = $1 AND status = 'active'",
+          [tenantId]
+        );
+        const currentActive = parseInt(countRes.rows[0].count, 10);
+        if (currentActive >= maxDevices) {
+          throw new BadRequestException(
+            `Cannot approve device: shop device limit reached (${currentActive}/${maxDevices} active devices). Please increase device limit first.`
+          );
+        }
+      }
+    }
+
     const revokedAt = status === 'revoked' ? 'now()' : 'NULL';
     const res = await this.db.query(
       `UPDATE devices 

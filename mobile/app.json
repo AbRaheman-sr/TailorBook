@@ -6,6 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1A3C5E"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tailorbook.app"
@@ -16,6 +21,11 @@
       "permissions": [
         "android.permission.CAMERA"
       ],
+      "splash": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#1A3C5E"
+      },
       "adaptiveIcon": {
         "backgroundColor": "#1A3C5E",
         "foregroundImage": "./assets/android-icon-foreground.png",

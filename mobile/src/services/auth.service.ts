@@ -56,16 +56,20 @@ export async function saveLicense(license: ShopLicense): Promise<void> {
 
 /**
  * Removes shop activation from device (deactivates / logs out).
- * Frees the device slot on the backend if online.
+ * Frees the device slot on the backend so another phone can activate.
  */
 export async function clearLicense(): Promise<void> {
   try {
     const deviceId = await getDeviceId();
-    fetch(`${DEFAULT_SERVER_URL}/devices/deactivate`, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    await fetch(`${DEFAULT_SERVER_URL}/devices/deactivate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_id: deviceId }),
-    }).catch(() => { });
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
   } catch { }
   await SecureStore.deleteItemAsync(LICENSE_KEY);
 }
@@ -132,7 +136,11 @@ export function normalizeServerUrl(rawUrl: string): string {
  */
 export function isOfflineError(err: any): boolean {
   const msg = typeof err === 'string' ? err : (err?.message || String(err));
-  return /UnknownHostException|No address associated|Network request failed|fetch failed|ENOTFOUND|ConnectException|NoRouteToHostException|offline|internet|Host unreachable/i.test(msg);
+  // If it was a server timeout or abort during cold start, it is NOT an offline error
+  if (/aborted|timeout|timed out|waking up/i.test(msg)) {
+    return false;
+  }
+  return /UnknownHostException|No address associated|ENOTFOUND|NoRouteToHostException|Host unreachable/i.test(msg);
 }
 
 /**
@@ -178,7 +186,7 @@ function parseNetworkError(err: any, targetUrl: string): string {
   }
 
   if (/aborted|timeout|timed out/i.test(msg)) {
-    return 'Connection timed out. Please check your internet connection and try again.';
+    return 'Cloud server is waking up. Please tap again to connect.';
   }
 
   return `Connection error: ${msg}`;
@@ -194,7 +202,7 @@ export async function testBackendConnection(
   const healthUrl = `${cleanUrl}/health`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch(healthUrl, {
@@ -232,6 +240,7 @@ export async function testBackendConnection(
 /**
  * Activates shop against the TailorBook NestJS backend.
  * Upon successful activation, stores the cryptographic license locally for offline use.
+ * Automatically handles Render cloud free-tier cold boot wakes with auto-retry.
  */
 export async function activateShop(
   serverUrl: string,
@@ -242,26 +251,53 @@ export async function activateShop(
   const deviceId = await getDeviceId();
   const cleanUrl = normalizeServerUrl(serverUrl);
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const attemptActivation = async (timeoutMs: number) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(`${cleanUrl}/devices/activate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'Bypass-Tunnel-Reminder': 'true',
+        },
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password.trim(),
+          device_id: deviceId,
+          device_name: deviceName,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  };
 
   try {
-    const response = await fetch(`${cleanUrl}/devices/activate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'Bypass-Tunnel-Reminder': 'true',
-      },
-      body: JSON.stringify({
-        username: username.trim(),
-        password: password.trim(),
-        device_id: deviceId,
-        device_name: deviceName,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+    let response: Response;
+    try {
+      // First attempt with 35s timeout to allow Render container to wake from cold spin-down
+      response = await attemptActivation(35000);
+      // If Render gateway returns 502/503 during cold boot, retry once after brief sleep
+      if (response.status === 502 || response.status === 503) {
+        await new Promise((r) => setTimeout(r, 2000));
+        response = await attemptActivation(25000);
+      }
+    } catch (firstErr: any) {
+      // If timed out or aborted during cold boot, auto-retry once seamlessly
+      if (/aborted|timeout|Network request failed/i.test(firstErr?.message || '')) {
+        await new Promise((r) => setTimeout(r, 1500));
+        response = await attemptActivation(30000);
+      } else {
+        throw firstErr;
+      }
+    }
 
     const text = await response.text();
     let data: any = {};
@@ -300,7 +336,6 @@ export async function activateShop(
     await saveLicense(license);
     return { success: true, message: 'Shop activated successfully! You can now use the app online and offline.', license };
   } catch (err: any) {
-    clearTimeout(timeoutId);
     return {
       success: false,
       message: parseNetworkError(err, cleanUrl),

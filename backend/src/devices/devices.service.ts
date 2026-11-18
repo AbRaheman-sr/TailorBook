@@ -80,7 +80,15 @@ export class DevicesService {
     if (existingDevice.rowCount && existingDevice.rowCount > 0) {
       const dev = existingDevice.rows[0];
       if (dev.status === 'revoked') {
-        // Allow re-activation if within tenant max_devices
+        // STRICT ADMIN ENFORCEMENT:
+        // A device explicitly revoked by administrator CANNOT log in!
+        // The administrator must explicitly re-approve it from the admin portal!
+        throw new ForbiddenException(
+          'This device has been revoked by the administrator. Contact your administrator to re-authorize this device.'
+        );
+      } else if (dev.status === 'deactivated') {
+        // Device was voluntarily deactivated / logged out (e.g. employee left shop).
+        // Check if tenant has an available device slot before re-activating:
         const activeDevices = await this.db.query(
           "SELECT COUNT(*) as count FROM devices WHERE tenant_id = $1 AND status = 'active'",
           [tenantId]
@@ -88,12 +96,12 @@ export class DevicesService {
         const currentActive = parseInt(activeDevices.rows[0].count, 10);
         if (currentActive >= tenant.max_devices) {
           throw new ForbiddenException(
-            `Device limit reached (${currentActive}/${tenant.max_devices} active devices). Deactivate an existing phone or increase limit in admin portal.`
+            `Device authorization limit reached (${currentActive}/${tenant.max_devices} active devices). Deactivate an existing phone or request limit increase.`
           );
         }
         await this.db.query(
-          "UPDATE devices SET status = 'active', revoked_at = null, last_seen_at = now() WHERE id = $1",
-          [dev.id]
+          "UPDATE devices SET status = 'active', revoked_at = null, last_seen_at = now(), device_name = $1 WHERE id = $2",
+          [device_name || dev.device_name || 'Android Device', dev.id]
         );
       } else {
         // Update last seen
@@ -178,10 +186,18 @@ export class DevicesService {
   }
 
   async deactivateDevice(deviceId: string): Promise<any> {
-    await this.db.query(
-      "UPDATE devices SET status = 'revoked', revoked_at = now() WHERE device_identifier = $1",
+    const res = await this.db.query(
+      "UPDATE devices SET status = 'deactivated', revoked_at = now() WHERE device_identifier = $1 AND status = 'active' RETURNING id, tenant_id",
       [deviceId]
     );
+    if (res.rowCount && res.rowCount > 0) {
+      const dev = res.rows[0];
+      await this.db.query(
+        `INSERT INTO audit_logs (actor_id, tenant_id, action, metadata)
+         VALUES ('device_user', $1, 'DEVICE_DEACTIVATED', $2)`,
+        [dev.tenant_id, JSON.stringify({ device_id: deviceId })]
+      );
+    }
     return { success: true, message: 'Device deactivated and slot released.' };
   }
 }
