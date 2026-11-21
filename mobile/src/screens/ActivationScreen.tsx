@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -144,7 +145,11 @@ export function ActivationScreen({
           {/* Logo / Branding Header */}
           <View style={styles.brandHeader}>
             <View style={styles.logoBadge}>
-              <Feather name="scissors" size={30} color="#F5A623" />
+              <Image
+                source={require('../../assets/icon.png')}
+                style={styles.brandLogoImage}
+                resizeMode="cover"
+              />
             </View>
             <Text style={styles.brandTitle}>Shop Authorization</Text>
             <Text style={styles.brandSubtitle}>
@@ -387,11 +392,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 5,
     elevation: 4,
+  },
+  brandLogoImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   brandTitle: {
     fontSize: 22,

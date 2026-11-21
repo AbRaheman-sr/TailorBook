@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet, ActivityIndicator, BackHandler } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, BackHandler, Image } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+import * as SplashScreen from 'expo-splash-screen';
 import { toastConfig } from './src/components/CustomToast';
+
+// Prevent native splash screen from auto-hiding before resources and authentication are ready
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 import { getDatabase } from './src/database/database';
 import { getTotalBillsCount } from './src/database/bill.service';
@@ -50,6 +54,7 @@ export default function App() {
       setCurrentScreen('activate');
     } finally {
       setIsInitializing(false);
+      await SplashScreen.hideAsync().catch(() => {});
     }
   }, []);
 
@@ -111,7 +116,12 @@ export default function App() {
   if (isInitializing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
+        <Image
+          source={require('./assets/android-icon-background.png')}
+          style={styles.splashImage}
+          resizeMode="contain"
+        />
+        <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 24 }} />
       </View>
     );
   }
@@ -206,5 +216,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A3C5E',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  splashImage: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
   },
 });

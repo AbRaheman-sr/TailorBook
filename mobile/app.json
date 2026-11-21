@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/android-icon-background.png",
       "resizeMode": "contain",
       "backgroundColor": "#1A3C5E"
     },
@@ -22,7 +22,7 @@
         "android.permission.CAMERA"
       ],
       "splash": {
-        "image": "./assets/splash-icon.png",
+        "image": "./assets/android-icon-background.png",
         "resizeMode": "contain",
         "backgroundColor": "#1A3C5E"
       },
@@ -39,6 +39,19 @@
     },
     "plugins": [
       "./plugins/withCleartextTraffic.js",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#1A3C5E",
+          "image": "./assets/android-icon-background.png",
+          "dark": {
+            "image": "./assets/android-icon-background.png",
+            "backgroundColor": "#1A3C5E"
+          },
+          "imageWidth": 200,
+          "resizeMode": "contain"
+        }
+      ],
       "expo-sqlite",
       "expo-secure-store",
       "expo-sharing",

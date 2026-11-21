@@ -5,6 +5,7 @@ import {
   View,
   TouchableOpacity,
   Platform,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -50,7 +51,11 @@ export function HomeScreen({ license, onNavigate, totalBills }: HomeScreenProps)
           </View>
 
           <View style={styles.logoRow}>
-            <Feather name="scissors" size={26} color="#F5A623" style={{ marginRight: 8 }} />
+            <Image
+              source={require('../../assets/icon.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
             <Text style={styles.appName}>TailorBook</Text>
           </View>
           <Text style={styles.subtitle}>Your tailoring shop, organized.</Text>
@@ -167,6 +172,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+  },
+  logoImage: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    marginRight: 10,
   },
   appName: {
     fontSize: 32,
